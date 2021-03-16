@@ -1,19 +1,9 @@
-CanvasRenderingContext2D.prototype.clear = function(){
-    this.fillStyle = "white"
-    this.fillRect(0, 0, cvs.width(), cvs.height())
-    this.fillStyle = "black"
-}
-
 Array.prototype.shuffle = function(){
     for (let i = this.length - 1; i > 0; i--) {
         let j = Math.floor(Math.random() * (i + 1));
         [this[i], this[j]] = [this[j], this[i]];
     }
 }
-
-const cvs = $("#drawing")
-const ctx = cvs[0].getContext("2d")
-ctx.clear()
 
 const tokenize = function(word){
     return [...word.matchAll(/(ka|ga|ki|gi|ku|gu|ke|ge|ko|go|sa|za|shi|ji|su|zu|se|ze|so|zo|ta|da|chi|ji|tsu|zu|te|de|to|do|na|ni|nu|ne|no|ha|ba|pa|hi|bi|pi|fu|bu|pu|he|be|pe|ho|bo|po|ma|mi|mu|me|mo|ya|yu|yo|ra|ri|ru|re|ro|wa|wo|a|i|u|e|o|n)/g)].map(arr=>arr[0])
@@ -30,7 +20,7 @@ const displayWord = function(word, i){
 
 const add = function(){
     $("#suggestions").empty()
-    ctx.clear()
+    paper.clear()
 
     i += 1
     displayWord(word, i)
@@ -88,6 +78,25 @@ const check = function(base, guess, romaji){
     })(0)
 }
 
+const drawingRecognized = function(guesses){
+    $("#suggestions").empty()
+        
+    if ("error" in guesses){
+        $("#suggestions").append($(`<span class="text-danger">${guesses["error"]}</span>`))
+    } else {
+        for (let guess of guesses){
+            const elt = $(`<a href="javascript:void(0)">${guess.character}</a>`)
+            elt.on("click", add)
+            $("#suggestions").append(elt)
+        }
+    }
+}
+
+const cvs = $("#drawing")[0]
+const paper = new Paper(cvs)
+paper.on("recognized", drawingRecognized)
+paper.clear()
+
 let words = ["kawaii", "sugoi"]
 words.shuffle()
 words = words.slice(0, 5)
@@ -102,123 +111,8 @@ let total = word.length
 
 displayWord(word, i)
 
-
-let drawing = false
-let lastx, lasty
-
-const mousedown = function(e){
-    let offsetX, offsetY
-    if (e.touches){
-        offsetX = e.touches[0].clientX - cvs.offset().left
-        offsetY = e.touches[0].clientY - cvs.offset().top
-    } else {
-        offsetX = e.offsetX
-        offsetY = e.offsetY
-    }
-
-    drawing = true
-    lastx = offsetX
-    lasty = offsetY
-}
-
-const mouseup = function(){
-    if (drawing){
-        drawing = false
-        const data = cvs[0].toDataURL()
-
-        fetch("/recognize", {
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "drawing": data,
-                "type": mode
-            }),
-            method: "POST"
-        })
-        .then(rep => rep.text())
-        .then((guesses) => {
-            guesses = JSON.parse(guesses)
-            $("#suggestions").empty()
-
-            if ("error" in guesses){
-                $("#suggestions").append($(`<span class="text-danger">${guesses["error"]}</span>`))
-            } else {
-                for (let guess of guesses){
-                    const elt = $(`<a href="javascript:void(0)">${guess.character}</a>`)
-                    elt.on("click", add)
-                    $("#suggestions").append(elt)
-                }
-            }
-        })
-    }
-}
-
-const mousemove = function(e){
-    e.preventDefault()
-
-    if (drawing){
-        let offsetX, offsetY
-        if (e.touches){
-            offsetX = e.touches[0].clientX - cvs.offset().left
-            offsetY = e.touches[0].clientY - cvs.offset().top
-        } else {
-            offsetX = e.offsetX
-            offsetY = e.offsetY
-        }
-
-        ctx.beginPath()
-        ctx.arc(lastx, lasty, 3, 0, 2 * Math.PI)
-        ctx.fill()
-
-        ctx.lineWidth = 6
-        ctx.beginPath()
-        ctx.moveTo(lastx, lasty)
-        ctx.lineTo(offsetX, offsetY)
-        ctx.stroke()
-
-        ctx.beginPath()
-        ctx.arc(offsetX, offsetY, 3, 0, 2 * Math.PI)
-        ctx.fill()
-
-        lastx = offsetX
-        lasty = offsetY
-    }
-}
-
-const touchmove = function(e){
-    e.preventDefault()
-
-    if (drawing){
-
-        ctx.beginPath()
-        ctx.arc(lastx, lasty, 3, 0, 2 * Math.PI)
-        ctx.fill()
-
-        ctx.lineWidth = 6
-        ctx.beginPath()
-        ctx.moveTo(lastx, lasty)
-        ctx.lineTo(offsetX, offsetY)
-        ctx.stroke()
-
-        ctx.beginPath()
-        ctx.arc(offsetX, offsetY, 3, 0, 2 * Math.PI)
-        ctx.fill()
-
-        lastx = offsetX
-        lasty = offsetY
-    }
-}
-
-cvs.on("mousedown", mousedown)
-$(document).on("mouseup", mouseup)
-cvs.on("mousemove", mousemove)
-cvs.on("touchstart", mousedown)
-cvs.on("touchmove", mousemove)
-cvs.on("touchend", mouseup)
-
 $("#clear").on("click", () => {
-    ctx.clear()
+    paper.clear()
     $("#suggestions").empty()
 })
 
